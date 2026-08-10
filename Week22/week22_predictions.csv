@@ -1,0 +1,2 @@
+game_num,away_team,home_team,matchup,predicted_winner,confidence,home_win_prob,away_win_prob,predicted_spread,spread_display,favored_team,spread_magnitude
+1,SEA,NE,SEA @ NE,SEA,0.5154238459464926,0.43522948786106674,0.5647705121389333,-0.6169538378597021,SEA -0.6,SEA,0.6169538378597021
