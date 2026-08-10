@@ -1,0 +1,5 @@
+**/nfl_data/*.csv
+ablation_cache/*.csv
+**/nfl_data/*.csv
+ablation_cache/*.csv
+*.csv
