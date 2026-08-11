@@ -1,10 +1,16 @@
-# NFL Game Outcome and Point Spread Prediction Using Ensemble Machine Learning
-
-**Course:** CS5100 — Foundations of Artificial Intelligence
-**Author:** Akul Aggarwal
-**Date:** August 2026
-
----
+```{=typst}
+#align(center)[
+  #v(2.5in)
+  #text(size: 22pt, weight: "bold")[NFL Game Outcome and Point Spread Prediction Using Ensemble Machine Learning]
+  #v(0.6in)
+  #text(size: 13pt)[Akul Aggarwal]
+  #v(0.15in)
+  #text(size: 12pt)[CS5100 — Foundations of Artificial Intelligence]
+  #v(0.1in)
+  #text(size: 12pt)[August 2026]
+]
+#pagebreak()
+```
 
 ## 1. Introduction
 
@@ -88,6 +94,8 @@ Preprocessing steps applied before model training:
 
 In both configurations, every base classifier is wrapped in `CalibratedClassifierCV` (isotonic regression, 3-fold CV) before being combined, consistent with the calibration-over-accuracy motivation discussed in Section 2.1.
 
+![End-to-end pipeline architecture (Weeks 14–22 layout). Four base classifiers are each individually calibrated before being combined by soft voting; a separate regression pipeline (right) predicts point spread.](figures/pipeline_architecture.png)
+
 **Point spread regression** (introduced Week 6) predicts the continuous point differential (home score − away score). Weeks 6–9 used a single Random Forest regressor. Weeks 10–22 test four candidate regression models per week — Random Forest, Linear Regression, quantile-loss Gradient Boosting, and regularized XGBoost — and automatically select whichever achieves the lowest mean absolute error (MAE) on validation folds that week.
 
 ### 3.4 Validation Strategy
@@ -102,11 +110,11 @@ Critically, beyond this internal cross-validation, every prediction reported in 
 
 ### 4.1 Season-Wide Performance (2025 Season, Weeks 1–22)
 
-Across all 22 weeks of the 2025 season, the system generated 284 graded predictions:
+Across all 22 weeks of the 2025 season, the system generated 283 graded predictions (one game, Week 4 GB @ DAL, ended 40–40 and is excluded as neither team "won"):
 
 | Metric | Value |
 |---|---|
-| **Overall accuracy** | **54.6%** (155/284 correct) |
+| **Overall accuracy** | **54.4%** (154/283 correct) |
 | Best week | Week 22 (100%, 1/1 games — small sample) |
 | Worst week | Week 19 (16.7%, 1/6 games) |
 | Weekly accuracy range | 16.7% – 100% |
@@ -118,7 +126,7 @@ Because the ensemble architecture changed after Week 9 (Section 3.3), the season
 
 | Model configuration | Weeks | Games | Correct | Accuracy |
 |---|---|---|---|---|
-| Legacy 3-model ensemble | 1–9 | 135 | 82 | **60.7%** |
+| Legacy 3-model ensemble | 1–9 | 134 | 81 | **60.4%** |
 | Enhanced 4-model ensemble w/ temporal weighting | 10–22 | 149 | 73 | **49.0%** |
 
 This is the single most important — and most honest — finding of this project: the enhanced architecture, despite substantially more modeling machinery (an additional base learner, deeper trees, temporal weighting, and several new engineered features), performed *worse* in live, prospective use than the simpler legacy model it replaced, missing its own internally documented target of 66–68% accuracy by a wide margin. Section 5 discusses possible explanations.
@@ -130,7 +138,7 @@ This is the single most important — and most honest — finding of this projec
 | 1 | 16 | 10 | 62.5% |
 | 2 | 16 | 9 | 56.2% |
 | 3 | 16 | 14 | 87.5% |
-| 4 | 16 | 9 | 56.2% |
+| 4 | 15 | 8 | 53.3% |
 | 5 | 14 | 6 | 42.9% |
 | 6 | 15 | 6 | 40.0% |
 | 7 | 15 | 9 | 60.0% |
@@ -156,7 +164,27 @@ Weeks 16, 17, and 19 stand out as unusually poor stretches (25–31% accuracy, w
 
 `Plot.ipynb` generates four visualizations from the aggregated weekly statistics: (1) a weekly accuracy line chart with a 50% baseline reference and shaded over/under-performance regions, (2) cumulative accuracy progression across the season, (3) a grouped bar chart of correct vs. incorrect predictions per week, and (4) high-confidence pick (>65% confidence) performance isolated from the full sample. These are produced directly from the notebook and are available by re-running `Plot.ipynb` with `MAX_WEEK = 22`.
 
-### 4.5 Example Output
+![Season-long performance dashboard (`Plot.ipynb`). Top-left: weekly accuracy against the 50% baseline. Top-right: cumulative accuracy converging to 54.4% by Week 22. Bottom-left: correct vs. incorrect predictions per week. Bottom-right: accuracy restricted to picks with stated confidence >65%.](figures/season_performance_dashboard.png)
+
+To evaluate classifier behavior beyond a single accuracy number, all 283 graded 2025-season predictions were also aggregated into a confusion matrix (home-win vs. away-win framing):
+
+![Confusion matrix, all 283 graded games. The model is biased toward predicting home wins (206 home-win predictions vs. 77 away-win predictions) relative to the actual split (151 home wins vs. 132 away wins), consistent with the fixed +2.5-point home-field-advantage feature described in Section 3.2.](figures/confusion_matrix.png)
+
+### 4.5 Calibration Analysis
+
+Section 2.1 motivated wrapping every base classifier in `CalibratedClassifierCV` specifically because Wunderlich et al. (2023) found that calibration-optimized models substantially outperform accuracy-optimized ones in realized betting return. The 283 graded 2025-season predictions were binned by stated confidence to check whether that goal was met in practice:
+
+![Stated confidence vs. actual accuracy, 2025 season. A well-calibrated model would show accuracy increasing monotonically across buckets; instead the relationship is non-monotonic — the highest-confidence bucket (>0.70, n=37) is the second-worst performer at 51.4%, only marginally above the 50% baseline and well below the 0.55–0.60 bucket's 67.6%.](figures/calibration_chart.png)
+
+This is a negative result for the calibration goal stated in Sections 1.2 and 2.1: despite isotonic calibration being applied to every base classifier, the ensemble's stated confidence does not reliably track its actual reliability in live 2025-season use. Section 5 returns to this finding alongside the legacy-vs-enhanced accuracy comparison.
+
+Discrimination ability was checked the same way, using each game's actual saved `home_win_prob` against the actual outcome:
+
+![ROC curve, home-win probability vs. actual outcome, all 283 graded 2025-season games. AUC = 0.528 — barely above the 0.500 line for random guessing, and far below the 0.682 AUC reported from an in-sample 2020–2023-train/2024-test backtest during development. The gap between the two illustrates the same overfitting-to-backtest risk discussed in Section 5.1.](figures/roc_curve.png)
+
+An AUC this close to 0.5 indicates the model's probability outputs carry only weak discriminative signal once evaluated on genuinely unseen, future games, even though the same architecture scored appreciably better on a retrospective same-population holdout split. This is reported here specifically because the gap is diagnostic, not because it is flattering — a reader who only saw the backtest AUC would draw a materially wrong conclusion about the system's real predictive power.
+
+### 4.6 Example Output
 
 A representative single-game prediction record (Week 1, `week1_predictions.csv`) illustrates the output schema:
 
@@ -175,14 +203,14 @@ actual_winner: PHI  ✓ correct
 
 ### 5.1 Interpretation of Results
 
-The headline number — 54.6% overall accuracy — is a modest improvement over a random 50% baseline but falls well short of both the legacy model's own 2025 performance (60.7%) and this project's originally documented target for the enhanced model (66–68%, per the model's own design documentation). Taken at face value, this is a negative result for the specific set of enhancements made at Week 10: a fourth ensemble member, deeper trees, temporal weighting favoring recent seasons, and additional engineered features (momentum, estimated injury impact, rest days, division rivalry) did not translate into better prospective accuracy, and in fact coincided with a roughly 12-point drop.
+The headline number — 54.4% overall accuracy — is a modest improvement over a random 50% baseline but falls well short of both the legacy model's own 2025 performance (60.4%) and this project's originally documented target for the enhanced model (66–68%, per the model's own design documentation). Taken at face value, this is a negative result for the specific set of enhancements made at Week 10: a fourth ensemble member, deeper trees, temporal weighting favoring recent seasons, and additional engineered features (momentum, estimated injury impact, rest days, division rivalry) did not translate into better prospective accuracy, and in fact coincided with a roughly 11-point drop.
 
 Several plausible explanations exist, none of which can be fully disentangled with the data collected here:
 
 1. **Increased model complexity without proportionally more training data** — deeper trees (max depth 15 vs. 5) and an additional ensemble member increase the effective capacity of the model, which raises overfitting risk especially with the same underlying NFL dataset size. Cross-validated *training-time* metrics for the enhanced model may have looked strong while genuinely out-of-sample live performance suffered — a classic symptom of overfitting to historical cross-validation folds that don't fully represent a new season's dynamics.
 2. **The "enhanced" features themselves may be weak or noisy signals** — the injury metric is explicitly *estimated* from performance variance rather than drawn from actual injury reports, and momentum (last-3-games win rate) is a high-variance statistic over a very small window. If these features added noise rather than signal, they could plausibly degrade rather than improve a model that otherwise had a working, simpler baseline.
 3. **Late-season variance** — three of the four worst weeks of the season (16, 17, 19) fall in the enhanced-model period and correspond to weeks with unusual incentive structures (rested starters, games without playoff stakes), which no version of this feature set explicitly models.
-4. **Small effective sample per comparison** — 135 vs. 149 games is not an enormous sample for detecting a true performance difference between two model configurations; some of the 12-point gap could be within the range of season-to-season or even split-to-split noise, though a gap this size is large enough that pure noise seems an incomplete explanation on its own.
+4. **Small effective sample per comparison** — 134 vs. 149 games is not an enormous sample for detecting a true performance difference between two model configurations; some of the 11-point gap could be within the range of season-to-season or even split-to-split noise, though a gap this size is large enough that pure noise seems an incomplete explanation on its own.
 
 This finding is consistent with the calibration literature discussed in Section 2.1 (Wunderlich et al.): more sophisticated models optimized on offline metrics do not automatically translate into better live performance, and calibration/robustness matters as much as raw model capacity.
 
@@ -204,11 +232,11 @@ Directly motivated by Section 5.1's findings: (1) revert to or blend with the si
 
 ### 6.1 Summary of Achievements
 
-This project delivered a complete, end-to-end NFL prediction pipeline: automated data collection from `nfl_data_py`, a 30+ feature engineering pipeline with RFE-based selection, a calibrated multi-model ensemble for winner classification, a separate regression pipeline for point spreads, and rigorous time-series-aware validation. The system was deployed prospectively across a full 22-week NFL season rather than evaluated only on a static holdout set, producing 284 genuinely out-of-sample graded predictions — a substantially more demanding and honest evaluation standard than a single train/test split.
+This project delivered a complete, end-to-end NFL prediction pipeline: automated data collection from `nfl_data_py`, a 30+ feature engineering pipeline with RFE-based selection, a calibrated multi-model ensemble for winner classification, a separate regression pipeline for point spreads, and rigorous time-series-aware validation. The system was deployed prospectively across a full 22-week NFL season rather than evaluated only on a static holdout set, producing 283 genuinely out-of-sample graded predictions — a substantially more demanding and honest evaluation standard than a single train/test split.
 
 ### 6.2 Lessons Learned
 
-The most valuable lesson from this project was not a success but a null result: a mid-season architectural upgrade intended to improve accuracy by 5-7 percentage points instead coincided with a roughly 12-point *decrease* in live performance relative to the simpler model it replaced. This is a useful, concrete illustration of a core ML principle — that offline validation improvements (cross-validation scores, documented design targets) do not guarantee improvements in genuine prospective deployment, and that added model complexity carries real overfitting and noise-amplification risk that must be checked against live, sequential results rather than assumed from design intent alone.
+The most valuable lesson from this project was not a success but a null result: a mid-season architectural upgrade intended to improve accuracy by 5-7 percentage points instead coincided with a roughly 11-point *decrease* in live performance relative to the simpler model it replaced. This is a useful, concrete illustration of a core ML principle — that offline validation improvements (cross-validation scores, documented design targets) do not guarantee improvements in genuine prospective deployment, and that added model complexity carries real overfitting and noise-amplification risk that must be checked against live, sequential results rather than assumed from design intent alone.
 
 ### 6.3 Individual Contributions
 

@@ -1,0 +1,9 @@
+pandas==1.5.3
+numpy==1.26.4
+scikit-learn==1.5.1
+xgboost==3.0.2
+nfl_data_py
+joblib
+matplotlib
+seaborn
+pillow
