@@ -31,11 +31,21 @@ To aggregate performance across every scored week and regenerate the report figu
 jupyter nbconvert --to notebook --inplace --execute Plot.ipynb
 ```
 
+## Running tests
+
+```bash
+pytest tests/ -v
+```
+
+`tests/test_nfl_predictor.py` covers the pure/deterministic parts of `nfl_predictor.py` — feature construction, the validation gate, team-name normalization, and (as a regression test) the exact `is_playoff`/`is_neutral` fixes described below. It doesn't hit the network or the cached play-by-play data, so it runs in a few seconds and in CI. GitHub Actions (`.github/workflows/tests.yml`) runs it on every push and PR to `main`.
+
 ## Repository structure
 
 This repo is organized **by NFL week** (`Week1/` … `Week22/`) rather than by artifact type (`data/`, `models/`, `scripts/`). That's a deliberate fit for how the project actually ran: the model retrains from scratch and is redeployed every week of a live season, so each `Week{N}/` folder is a self-contained unit holding that week's notebook, cached data, and output predictions — mirroring the real production timeline rather than a single offline experiment. See `Final_Report.md` §3.1 for the full rationale.
 
 - `nfl_predictor.py` — shared pipeline module (`NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads`, `run_validation_gate`); imported by Week22 only, see above
+- `tests/` — pytest suite for `nfl_predictor.py`
+- `.github/workflows/tests.yml` — CI: runs the test suite on every push/PR to `main`
 - `Week{N}/Model.ipynb` — full pipeline for week *N* (data collection → feature engineering → ensemble training → calibration → prediction)
 - `Week{N}/week{N}_predictions.csv` — that week's graded predictions (tracked in git)
 - `Week{N}/nfl_data/` — cached raw data (gitignored, regenerated on first run)

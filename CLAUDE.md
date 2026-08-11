@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Machine-learning system that predicts NFL game winners and point spreads for the **2025 season** (Weeks 1–22, including playoffs; Week 22 = Super Bowl, February 2026). The season is complete — all 22 weeks have predictions and results.
 
-**Weeks 1–21** are standalone, self-contained notebooks — each `Week{N}/Model.ipynb` carries its own inline copy of the pipeline (~44 KB of class definitions in a single cell), exactly as it was run to produce that week's already-graded prediction. **Week 22** is the exception: its pipeline classes (`NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads`, `run_validation_gate`) now live in `nfl_predictor.py` at the repo root, and `Week22/Model.ipynb` imports them rather than redefining them inline (see "Shared module" below). There is still no test suite and no CI. Understanding the *history* here is the important fact: a model change used to mean editing one notebook and copying it forward by hand, with the copy silently diverging from that point on — Weeks 1–21 are frozen artifacts of that pattern and are not being retrofitted.
+**Weeks 1–21** are standalone, self-contained notebooks — each `Week{N}/Model.ipynb` carries its own inline copy of the pipeline (~44 KB of class definitions in a single cell), exactly as it was run to produce that week's already-graded prediction. **Week 22** is the exception: its pipeline classes (`NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads`, `run_validation_gate`) now live in `nfl_predictor.py` at the repo root, and `Week22/Model.ipynb` imports them rather than redefining them inline (see "Shared module" below). `tests/test_nfl_predictor.py` (pytest) covers `nfl_predictor.py`'s pure/deterministic logic and runs in GitHub Actions (`.github/workflows/tests.yml`) on every push/PR to `main`; it does not and cannot cover Weeks 1–21's inline, per-notebook code. Understanding the *history* here is the important fact: a model change used to mean editing one notebook and copying it forward by hand, with the copy silently diverging from that point on — Weeks 1–21 are frozen artifacts of that pattern and are not being retrofitted.
 
 ## Environment & Commands
 
@@ -26,6 +26,9 @@ Plain `python3` (Homebrew) has **no** packages installed — always use the Anac
 
 # Aggregate performance across all weeks
 /opt/anaconda3/bin/jupyter nbconvert --to notebook --inplace --execute Plot.ipynb
+
+# Run the test suite (covers nfl_predictor.py only; a few seconds, no network needed)
+/opt/anaconda3/bin/python -m pytest tests/ -v
 ```
 
 Cell 3 of each notebook runs `%pip install xgboost nfl_data_py pillow`; it is a no-op in this env.
@@ -36,7 +39,7 @@ Cell 3 of each notebook runs `%pip install xgboost nfl_data_py pillow`; it is a 
 
 ### Shared module (`nfl_predictor.py`) — Week 22 only
 
-`nfl_predictor.py` at the repo root holds `TEAM_MAPPING`, `NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads()`, and `run_validation_gate()`. `Week22/Model.ipynb` imports from it (with a `sys.path` insert in cell 1, since the notebook's kernel cwd is `Week22/`, one level below the module). Weeks 1–21 do **not** import it and never will — each still carries its own inline, self-contained copy of the pipeline as originally run. Extracted via pure code motion from the (already bug-fixed, see Known Issues) Week22 notebook; no model logic changed in the move, only two implicit-global dependencies were closed: `NFLSpreadPredictor.train_spread_model()` now takes an explicit `reference_predictor` argument instead of reading a notebook-global `predictor`, and `predict_multiple_games_with_spreads()` now takes `weekly_data`/`schedule_data` as explicit parameters instead of reading notebook globals.
+`nfl_predictor.py` at the repo root holds `TEAM_MAPPING`, `NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads()`, and `run_validation_gate()`. `Week22/Model.ipynb` imports from it (with a `sys.path` insert in cell 1, since the notebook's kernel cwd is `Week22/`, one level below the module). Weeks 1–21 do **not** import it and never will — each still carries its own inline, self-contained copy of the pipeline as originally run. Extracted via pure code motion from the (already bug-fixed, see Known Issues) Week22 notebook; no model logic changed in the move, only two implicit-global dependencies were closed: `NFLSpreadPredictor.train_spread_model()` now takes an explicit `reference_predictor` argument instead of reading a notebook-global `predictor`, and `predict_multiple_games_with_spreads()` now takes `weekly_data`/`schedule_data` as explicit parameters instead of reading notebook globals. `tests/test_nfl_predictor.py` covers this module (15 tests, pytest, CI-enforced).
 
 ### Pipeline (class definitions live in `nfl_predictor.py` for Week 22; inline in one code cell — cell index 5 — for Weeks 1–21)
 

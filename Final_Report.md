@@ -186,7 +186,7 @@ An AUC this close to 0.5 indicates the model's probability outputs carry only we
 
 ### 4.6 Example Output
 
-A representative single-game prediction record (Week 1, `week1_predictions.csv`) illustrates the output schema:
+A representative single-game winner-prediction record (Week 1, `week1_predictions.csv`) illustrates the output schema:
 
 ```
 matchup: DAL @ PHI
@@ -197,6 +197,16 @@ away_win_prob: 6.5%
 actual_winner: PHI  ✓ correct
 ```
 
+A spread-prediction record (Week 6, `week6_predictions.csv`) illustrates the same for the regression side — chosen deliberately as a *miss* rather than a hit, since Section 4.1's headline numbers already show the model getting it right slightly more often than not, and a single cherry-picked correct example would understate the spread model's actual MAE of 11.85 points (Section 5.2):
+
+```
+matchup: PHI @ NYG
+predicted_spread: PHI -3.1  (home team NYG favored by only 3.1 by the model)
+predicted_winner: PHI
+actual_score: NYG 34, PHI 17
+actual_winner: NYG  ✗ wrong winner, ✗ spread off by 20.1 points
+```
+
 ---
 
 ## 5. Discussion
@@ -205,7 +215,9 @@ actual_winner: PHI  ✓ correct
 
 The headline number — 54.4% overall accuracy — is a modest improvement over a random 50% baseline but falls well short of both the legacy model's own 2025 performance (60.4%) and this project's originally documented target for the enhanced model (66–68%, per the model's own design documentation). Taken at face value, this is a negative result for the specific set of enhancements made at Week 10: a fourth ensemble member, deeper trees, temporal weighting favoring recent seasons, and additional engineered features (momentum, estimated injury impact, rest days, division rivalry) did not translate into better prospective accuracy, and in fact coincided with a roughly 11-point drop.
 
-Several plausible explanations exist, none of which can be fully disentangled with the data collected here:
+One specific, concrete root cause was identified and fixed after the season concluded, without altering any of the historical predictions reported above (see `nfl_predictor.py` and `CLAUDE.md` "Known Issues" for the full account). `build_dataset()` computed the `is_playoff` feature as `game_type == 'REG'` — backwards, since `REG` is the *regular-season* code, so every regular-season game was labeled a playoff game and every real playoff game was labeled regular. Separately, `is_neutral` was hardcoded `False` everywhere, including the Super Bowl. Fixing both and re-running the exact same architecture on the same 2020–2023-train/2024-test retrospective split that originally motivated the 66–68% design target dropped that backtest's own accuracy from 63.2% to 55.4% and its AUC from 0.682 to 0.552 — much closer to, though still slightly above, the honest 54.4% / 0.528 prospective numbers reported above. That is direct evidence that at least part of the gap between the model's backtested promise and its live performance was a genuine implementation bug, not just overfitting or bad luck — though it plainly does not close the whole gap by itself, since 55.4% is still short of the original 66–68% target.
+
+Beyond that confirmed defect, several additional explanations remain plausible for the residual gap, none of which can be fully disentangled with the data collected here:
 
 1. **Increased model complexity without proportionally more training data** — deeper trees (max depth 15 vs. 5) and an additional ensemble member increase the effective capacity of the model, which raises overfitting risk especially with the same underlying NFL dataset size. Cross-validated *training-time* metrics for the enhanced model may have looked strong while genuinely out-of-sample live performance suffered — a classic symptom of overfitting to historical cross-validation folds that don't fully represent a new season's dynamics.
 2. **The "enhanced" features themselves may be weak or noisy signals** — the injury metric is explicitly *estimated* from performance variance rather than drawn from actual injury reports, and momentum (last-3-games win rate) is a high-variance statistic over a very small window. If these features added noise rather than signal, they could plausibly degrade rather than improve a model that otherwise had a working, simpler baseline.
@@ -224,7 +236,7 @@ This finding is consistent with the calibration literature discussed in Section 
 
 ### 5.3 Potential Improvements
 
-Directly motivated by Section 5.1's findings: (1) revert to or blend with the simpler legacy ensemble rather than assuming more model complexity is strictly better; (2) validate each Week-10+ feature's marginal contribution individually (ablation testing) before including it, rather than adding several features simultaneously; (3) replace the estimated injury metric with actual injury report data if a reliable feed can be sourced; (4) incorporate real weather data; (5) apply the calibration-focused evaluation approach from Wunderlich et al. more rigorously — i.e., explicitly track and optimize Brier score improvements across model versions, not just accuracy, since the two can diverge.
+Directly motivated by Section 5.1's findings: (1) revert to or blend with the simpler legacy ensemble rather than assuming more model complexity is strictly better; (2) validate each Week-10+ feature's marginal contribution individually (ablation testing) before including it, rather than adding several features simultaneously; (3) replace the estimated injury metric with actual injury report data if a reliable feed can be sourced; (4) incorporate real weather data; (5) apply the calibration-focused evaluation approach from Wunderlich et al. more rigorously — i.e., explicitly track and optimize Brier score improvements across model versions, not just accuracy, since the two can diverge; (6) the `is_playoff`/`is_neutral` bugs identified in Section 5.1 are now fixed in `nfl_predictor.py`, guarded by a `run_validation_gate()` check that would have caught this exact class of regression had it existed at Week 10 — extending this fixed pipeline to a future season, rather than resuming from the original buggy one, is the natural next step.
 
 ---
 
