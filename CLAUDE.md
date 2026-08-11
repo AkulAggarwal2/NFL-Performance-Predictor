@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Machine-learning system that predicts NFL game winners and point spreads for the **2025 season** (Weeks 1–22, including playoffs; Week 22 = Super Bowl, February 2026). The season is complete — all 22 weeks have predictions and results.
 
-There is **no application code outside the notebooks**. Every `Week{N}/Model.ipynb` is a standalone, self-contained copy of the entire pipeline (~44 KB of class definitions in a single cell). There is no shared module, no package, no test suite, and no CI. Understanding this is the single most important fact about the repo: a model change means editing one notebook and copying it forward.
+**Weeks 1–21** are standalone, self-contained notebooks — each `Week{N}/Model.ipynb` carries its own inline copy of the pipeline (~44 KB of class definitions in a single cell), exactly as it was run to produce that week's already-graded prediction. **Week 22** is the exception: its pipeline classes (`NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads`, `run_validation_gate`) now live in `nfl_predictor.py` at the repo root, and `Week22/Model.ipynb` imports them rather than redefining them inline (see "Shared module" below). There is still no test suite and no CI. Understanding the *history* here is the important fact: a model change used to mean editing one notebook and copying it forward by hand, with the copy silently diverging from that point on — Weeks 1–21 are frozen artifacts of that pattern and are not being retrofitted.
 
 ## Environment & Commands
 
@@ -34,7 +34,11 @@ Cell 3 of each notebook runs `%pip install xgboost nfl_data_py pillow`; it is a 
 
 ## Architecture
 
-### Pipeline (all inside one code cell — cell index 5 in Weeks 14–22)
+### Shared module (`nfl_predictor.py`) — Week 22 only
+
+`nfl_predictor.py` at the repo root holds `TEAM_MAPPING`, `NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads()`, and `run_validation_gate()`. `Week22/Model.ipynb` imports from it (with a `sys.path` insert in cell 1, since the notebook's kernel cwd is `Week22/`, one level below the module). Weeks 1–21 do **not** import it and never will — each still carries its own inline, self-contained copy of the pipeline as originally run. Extracted via pure code motion from the (already bug-fixed, see Known Issues) Week22 notebook; no model logic changed in the move, only two implicit-global dependencies were closed: `NFLSpreadPredictor.train_spread_model()` now takes an explicit `reference_predictor` argument instead of reading a notebook-global `predictor`, and `predict_multiple_games_with_spreads()` now takes `weekly_data`/`schedule_data` as explicit parameters instead of reading notebook globals.
+
+### Pipeline (class definitions live in `nfl_predictor.py` for Week 22; inline in one code cell — cell index 5 — for Weeks 1–21)
 
 `NFLGamePredictor` owns the whole classification path:
 
@@ -60,7 +64,7 @@ Week 15 is the same 11 code cells with the markdown stripped, and keeps a `Model
 
 **Weeks 16–22 are byte-identical in model code.** Only three code cells differ between consecutive weeks — 7, 8, and 9 in the 11-code-cell layout (cells 14, 15, 16 counting markdown). Weeks 14–15 differ additionally at code cell 6, where `is_playoff=False` was later changed to `is_playoff=(week >= 19)`.
 
-Use **Week22/Model.ipynb as the template** for any new week.
+Use **Week22/Model.ipynb as the template** for any new week. Because Week22 now imports its classes from `nfl_predictor.py` instead of redefining them inline, a `Week{N}` copied from it inherits that same import — meaning a fix made once in `nfl_predictor.py` after Week 22 will, for the first time in this repo's history, actually reach every subsequent week without a manual copy-paste. It does not reach Weeks 1–21 retroactively.
 
 ### Plot.ipynb
 
@@ -125,15 +129,15 @@ Reproduce by joining the prediction CSVs against `Week22/nfl_data/schedule_data_
 
 ## Known Issues
 
-- **`is_playoff` is inverted during training.** In `build_dataset`, features are built with `is_playoff=game.get('game_type', '') == 'REG'` — `REG` is the *regular-season* code, so every regular-season game is labeled a playoff game and every real playoff game (`WC`/`DIV`/`CON`/`SB`) is labeled regular. Inference uses `is_playoff=(week >= 19)`, so training and prediction disagree on this feature's meaning. Likely contributor to the 38.5% playoff accuracy.
-- **`is_neutral` is hardcoded `False` everywhere**, including the Super Bowl, so Week 22 gives the nominal home team a 2.5-point advantage that does not exist.
-- **No held-out validation gates a deploy.** `evaluate_model_with_calibration()` exists but nothing blocks shipping a worse model; regressions are only visible weeks later in Plot.ipynb.
-- **Copy-forward drift.** Because the pipeline is duplicated 22×, a fix applied to one week is invisible to the others. Weeks 1–13 still run the older pipeline and will never pick up fixes.
-- **Stale references.** `Week14/README_PDF_Conversion.md`, `MODEL_IMPROVEMENTS_SUMMARY.md`, `QUICK_START_IMPROVED_MODEL.md`, `Week10/Model_backup_20251106.ipynb`, and `.claude/agents/` (the `model-analyzer` / `model-optimizer` agents) were all removed or never committed. Only `CLAUDE.md` and `Week14/Project_Summary_Report.md` are tracked markdown.
+- **`is_playoff` was inverted during training — fixed in `nfl_predictor.py` (Week 22 only).** `build_dataset` used to build features with `is_playoff=game.get('game_type', '') == 'REG'` — `REG` is the *regular-season* code, so every regular-season game was labeled a playoff game and every real playoff game (`WC`/`DIV`/`CON`/`SB`) was labeled regular, while inference used `is_playoff=(week >= 19)` — training and prediction disagreed on this feature's meaning. Now reads `game.get('game_type', '') in ('WC', 'DIV', 'CON', 'SB')`. **Weeks 1–21 still have the original bug** — this was likely a contributor to the 38.5% playoff accuracy in those weeks, and that historical number has not been altered.
+- **`is_neutral` was hardcoded `False` everywhere — fixed in `nfl_predictor.py` (Week 22 only).** Training now reads the real `location` column from `nfl_data_py` schedule data (`'Neutral'` for the Super Bowl and international games) instead of a hardcoded `False`; inference defaults to treating week 22 as neutral unless told otherwise, and Week22's own call site passes `is_neutral=True` explicitly. **Weeks 1–21 still have the original bug.**
+- **No held-out validation gated a deploy — fixed in `nfl_predictor.py` (Week 22 only).** `evaluate_model_with_calibration()` existed but was never actually called anywhere in the pipeline. It's now invoked after `create_ensemble_model()` and checked by `run_validation_gate()` (PASS requires CV accuracy ≥ 0.55 and Brier ≤ 0.25; prints a clear PASS/FAIL banner either way). This doesn't retroactively gate anything already deployed, and doesn't auto-block execution on FAIL (it prints and continues) — it's a visibility fix, not a hard stop.
+- **Copy-forward drift — fixed going forward only.** Because the pipeline used to be duplicated 22×, a fix applied to one week was invisible to the others. Week 22 now imports from `nfl_predictor.py` instead of carrying its own inline copy, so a future week built from the Week22 template will inherit fixes made to the shared module automatically. Weeks 1–21 still run their original, self-contained (and still-buggy) inline pipelines and always will — fixing them would mean regenerating already-graded historical predictions with hindsight of the real outcomes, which is not a legitimate prospective forecast.
+- **Stale references.** `Week14/README_PDF_Conversion.md`, `MODEL_IMPROVEMENTS_SUMMARY.md`, `QUICK_START_IMPROVED_MODEL.md`, `Week10/Model_backup_20251106.ipynb`, and `.claude/agents/` (the `model-analyzer` / `model-optimizer` agents) were all removed or never committed. `CLAUDE.md`, `Week14/Project_Summary_Report.md`, `Final_Report.md`, and `README.md` are the tracked markdown files.
 
 ## Modifying the Model
 
-Edits land in the big class cell (code cell 1 in the 14–22 layout) of the newest week, then get copied forward. High-leverage knobs:
+For a new week built from the Week22 template, edits land in `nfl_predictor.py` directly (Week22/Model.ipynb imports from it — no more copying a class definition by hand). For Weeks 1–21, edits still land in that week's own inline class cell and go nowhere else; those weeks are historical snapshots, not live code. High-leverage knobs:
 
 - `select_features(df, n_features=...)` — RFE breadth.
 - `create_ensemble_model()` — per-model hyperparameters and the `-0.15` temporal decay (more negative = stronger recency bias).

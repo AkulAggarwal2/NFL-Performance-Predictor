@@ -2,3 +2,5 @@
 ablation_cache/*.csv
 *.csv
 !week*_predictions.csv
+__pycache__/
+*.pyc
