@@ -9,3 +9,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+
+# Local Python env (conda, py3.11)
+.venv/

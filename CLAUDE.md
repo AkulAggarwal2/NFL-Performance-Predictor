@@ -10,16 +10,20 @@ Machine-learning system that predicts NFL game winners and point spreads for the
 
 ## Environment & Commands
 
-There is no venv or lockfile. The working interpreter is the **Anaconda base env**, which already has every dependency:
+Use the project-local env **`.venv/`** (gitignored) for scripts and tests: a conda env with Python 3.11 + `requirements.txt` (matching CI) plus `llvm-openmp` from conda-forge, which xgboost needs for `libomp.dylib`. Recreate with:
 
 ```bash
-/opt/anaconda3/bin/python      # pandas 1.5.3, numpy 1.26.4, scikit-learn 1.5.1, xgboost 3.0.2, nfl_data_py
-/opt/anaconda3/bin/jupyter lab # notebooks
+/opt/anaconda3/bin/conda create -y -p ./.venv python=3.11
+./.venv/bin/python -m pip install -r requirements.txt
+/opt/anaconda3/bin/conda install -y -p ./.venv -c conda-forge llvm-openmp
 ```
 
-Plain `python3` (Homebrew) has **no** packages installed — always use the Anaconda path for scripting.
+The **Anaconda base env is currently broken**: its scipy binary (`_spropack.so`) is rejected by dyld on this macOS version, so anything that imports sklearn fails there. The commands below still name it for notebooks because `.venv/` has no jupyter installed. Plain `python3` (Homebrew) has no packages.
 
 ```bash
+# Scorecard: walk-forward log loss over 2021–2024, leakage-checked (~2 min). Last line is SCORE.
+./.venv/bin/python evaluate.py
+
 # Run a week's notebook headlessly (writes outputs back into the .ipynb)
 /opt/anaconda3/bin/jupyter nbconvert --to notebook --inplace --execute \
   --ExecutePreprocessor.timeout=3600 Week22/Model.ipynb
@@ -28,7 +32,7 @@ Plain `python3` (Homebrew) has **no** packages installed — always use the Anac
 /opt/anaconda3/bin/jupyter nbconvert --to notebook --inplace --execute Plot.ipynb
 
 # Run the test suite (covers nfl_predictor.py only; a few seconds, no network needed)
-/opt/anaconda3/bin/python -m pytest tests/ -v
+./.venv/bin/python -m pytest tests/ -v
 ```
 
 Cell 3 of each notebook runs `%pip install xgboost nfl_data_py pillow`; it is a no-op in this env.

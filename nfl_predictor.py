@@ -598,7 +598,10 @@ class NFLGamePredictor:
         
         game_records = []
         processed_count = 0
-        
+        # Team features depend only on (season, week), not on the individual game --
+        # compute them once per week instead of once per game.
+        team_features_cache = {}
+
         # Process each scheduled game
         for idx, game in schedule_data.iterrows():
             processed_count += 1
@@ -614,8 +617,10 @@ class NFLGamePredictor:
                 continue
             
             # Get team features up to this point in season (with defensive stats)
-            team_features = self.create_team_features(weekly_data, season, week, schedule_data)
-            
+            if (season, week) not in team_features_cache:
+                team_features_cache[(season, week)] = self.create_team_features(weekly_data, season, week, schedule_data)
+            team_features = team_features_cache[(season, week)]
+
             if not team_features:
                 continue
             
