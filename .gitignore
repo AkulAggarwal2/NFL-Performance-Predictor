@@ -1,6 +1,11 @@
-**/nfl_data/*.csv
-ablation_cache/*.csv
+# Downloaded/cached data (~900 MB per week) — never commit
+nfl_data/
+ablation_cache/
 *.csv
 !week*_predictions.csv
+
+# Python / tooling caches
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
