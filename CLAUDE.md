@@ -21,7 +21,10 @@ Use the project-local env **`.venv/`** (gitignored) for scripts and tests: a con
 The **Anaconda base env is currently broken**: its scipy binary (`_spropack.so`) is rejected by dyld on this macOS version, so anything that imports sklearn fails there. The commands below still name it for notebooks because `.venv/` has no jupyter installed. Plain `python3` (Homebrew) has no packages.
 
 ```bash
-# Scorecard: walk-forward log loss over 2021–2024, leakage-checked (~2 min). Last line is SCORE.
+# One-time: download 2010–2024 schedules + weekly stats into data/ (gitignored)
+./.venv/bin/python fetch_data.py
+
+# Scorecard: walk-forward log loss over 2011–2024, leakage-checked (~3 min). Last line is SCORE.
 ./.venv/bin/python evaluate.py
 
 # Run a week's notebook headlessly (writes outputs back into the .ipynb)
@@ -37,7 +40,11 @@ The **Anaconda base env is currently broken**: its scipy binary (`_spropack.so`)
 
 Cell 3 of each notebook runs `%pip install xgboost nfl_data_py pillow`; it is a no-op in this env.
 
-**Disk:** the repo is ~25 GB. Each `Week{N}/nfl_data/` holds a ~900 MB `pbp_data_2020_2025.csv` (21 near-identical copies). All `nfl_data/*.csv` are gitignored; only `week*_predictions.csv` is tracked. Never `git add -f` a data CSV.
+**Disk / 2025 holdout:** the 21 `Week{N}/nfl_data/` caches (~25 GB, each with a ~900 MB `pbp_data_2020_2025.csv`) have been **moved out of the repo** to `../NFL-Performance-Predictor-holdout-2025/` so 2025 outcomes aren't readable from inside it. Put them back at the very end with `for d in ../NFL-Performance-Predictor-holdout-2025/Week*/nfl_data; do mv "$d" "${d#../NFL-Performance-Predictor-holdout-2025/}"; done`. Until then the week notebooks will re-download on run. `data/` (2010–2024, from `fetch_data.py`) is the only data inside the repo. `nfl_data/` and `data/` are gitignored; only `week*_predictions.csv` is tracked. Never `git add -f` a data CSV.
+
+### Scorecard (`evaluate.py`)
+
+Frozen referee for model experiments; change `nfl_predictor.py`, not this. It loads `data/`, drops season ≥ 2025 (`HOLDOUT_SEASON`), runs a leakage test (rebuilds 7 checkpoint weeks with the future deleted and that week's scores scrambled; any feature change → exit 1, no SCORE), then walk-forward: retrains `nfl_predictor.train_and_predict(train_df, test_df)` on strictly earlier games every `RETRAIN_EVERY = 4` weeks (weekly retraining is ~13 min) and predicts the block. `test_df` has the label columns stripped. Prints `SCORE: <log loss>`, lower is better. Baseline at commit time: **0.6838** (constant home-rate guess 0.6860, coin flip 0.6931; accuracy 60.8% vs 56.1% always-home, 3,577 games). Any calibration must be fit inside `train_and_predict` on a temporal split of `train_df` only.
 
 ## Architecture
 
@@ -130,7 +137,7 @@ Calibration is poor and non-monotonic — the highest-confidence bucket is the s
 | 0.65–0.70 | 47 | 63.8% |
 | >0.70 | 37 | 51.4% |
 
-Reproduce by joining the prediction CSVs against `Week22/nfl_data/schedule_data_2020_2025.csv` (filter `season == 2025`, map `LAR`→`LA`, skip ties), or by running Plot.ipynb.
+Reproduce by joining the prediction CSVs against `../NFL-Performance-Predictor-holdout-2025/Week22/nfl_data/schedule_data_2020_2025.csv` (moved out of the repo, see Disk above) (filter `season == 2025`, map `LAR`→`LA`, skip ties), or by running Plot.ipynb.
 
 **The Week-10 "enhanced model" did not deliver its targets.** Prior versions of this file recorded projected gains (66–68% accuracy, spread MAE 7.5–8.5) as if achieved. Measured results went the other way: accuracy fell from 60.4% to 50.0% after the change, and spread MAE was flat (11.72 → 11.90). Treat any performance claim in `Week14/Project_Summary_Report.md` (which states ~63%) as a projection, not a measurement.
 

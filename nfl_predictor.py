@@ -1159,6 +1159,25 @@ class NFLSpreadPredictor:
         return results
 
 
+def train_and_predict(train_df, test_df):
+    """
+    The model as evaluate.py scores it: fit on train_df (build_dataset rows, labels
+    included), return P(home win) for each row of test_df (same feature columns, labels
+    removed).
+
+    Anything fit here -- feature selection, ensemble, calibration, blending -- sees only
+    train_df, so it is walk-forward by construction. Calibration needs out-of-sample
+    predictions, so fit it on a temporal split *inside* train_df, never on test_df.
+    """
+    predictor = NFLGamePredictor()
+    predictor.select_features(train_df)
+    predictor.create_ensemble_model(train_df)
+    cols = predictor.best_features
+    # Fill gaps with training means, never test-batch statistics.
+    X_test = test_df[cols].fillna(train_df[cols].mean())
+    return predictor.final_model.predict_proba(X_test)[:, 1]
+
+
 def run_validation_gate(metrics, min_accuracy=0.55, max_brier=0.25):
     """
     Check TimeSeriesSplit CV metrics (as returned by NFLGamePredictor.evaluate_model_with_calibration)

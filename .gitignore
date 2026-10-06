@@ -1,5 +1,6 @@
 # Downloaded/cached data (~900 MB per week) — never commit
 nfl_data/
+data/
 ablation_cache/
 *.csv
 !week*_predictions.csv
