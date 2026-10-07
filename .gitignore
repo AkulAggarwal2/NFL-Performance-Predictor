@@ -1,6 +1,6 @@
 # Downloaded/cached data (~900 MB per week) — never commit
 nfl_data/
-data/
+data
 ablation_cache/
 *.csv
 !week*_predictions.csv
@@ -12,4 +12,8 @@ __pycache__/
 .ruff_cache/
 
 # Local Python env (conda, py3.11)
-.venv/
+.venv
+
+# loop.sh output
+loop_log.tsv
+loop_runs/

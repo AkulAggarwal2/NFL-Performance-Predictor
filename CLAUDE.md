@@ -13,7 +13,7 @@ Weekly notebooks (`Week{N}/Model.ipynb`, `Plot.ipynb`) are documented separately
 - The only measure of a change is `./.venv/bin/python evaluate.py`.
   Current baseline: SCORE 0.6557, Brier 0.2319, accuracy 60.5%.
 - Model changes go in `nfl_predictor.py` (`train_and_predict` and what it calls).
-- Never edit `evaluate.py`, `fetch_data.py`, or anything in `tests/`.
+- Never edit `evaluate.py`, `fetch_data.py`, `loop.sh`, or anything in `tests/`.
 - Never read `../NFL-Performance-Predictor-holdout-2025/` or use 2025 data in any form.
 - Anything fitted (calibration, imputation, scaling, feature selection) uses only `train_df`.
 - One idea per attempt. Afterward, run evaluate.py and pytest, and report SCORE, accuracy, Brier, and min/max probability.
@@ -41,6 +41,10 @@ The Anaconda base env is broken (its scipy binary is rejected by dyld on this ma
 
 # Test suite (covers nfl_predictor.py only; a few seconds, no network needed). CI runs it on push/PR to main.
 ./.venv/bin/python -m pytest tests/ -v
+
+# Experiment loop (human-run): N agent attempts at <focus>; keeps a change only if pytest passes
+# and SCORE improves by >= 0.002. Needs a clean tree. Logs to loop_log.tsv, transcripts in loop_runs/.
+./loop.sh "<focus>" <iterations>
 ```
 
 ## Data & the 2025 holdout
