@@ -134,6 +134,30 @@ Week 1: DAL @ PHI  | predicted PHI (93.5% conf.) | actual PHI          ✓
 Week 6: PHI @ NYG   | predicted PHI -3.1          | actual NYG 34–17   ✗ (off by 20.1 pts)
 ```
 
+### 4.6 Additional Measured Metrics
+
+Further segments of the same 283 graded games (tie excluded):
+
+| Segment | Accuracy |
+|---|---|
+| Weeks 10–18 (enhanced model, regular season) | 50.0% (68/136) |
+| Weeks 19–22 (playoffs) | 38.5% (5/13) |
+| High-confidence picks (conf > 0.65) | 58.3% (49/84) |
+
+Stated confidence vs. actual accuracy, the numbers behind the calibration chart in Section 4.4:
+
+| Stated confidence | n | Actual accuracy |
+|---|---|---|
+| ≤0.55 | 76 | 38.2% |
+| 0.55–0.60 | 68 | 67.6% |
+| 0.60–0.65 | 55 | 54.5% |
+| 0.65–0.70 | 47 | 63.8% |
+| >0.70 | 37 | 51.4% |
+
+Spread model, Weeks 6–22: **MAE 11.85, RMSE 14.55**, mean bias +1.93 points toward the home team. The pooled correlation between predicted spread and actual margin is **0.11**, close to no signal. Spread MAE was flat across the Week-10 model change (11.72 → 11.90), against an internal target of 7.5–8.5. Treat the ~63% accuracy stated in `Week14/Project_Summary_Report.md` as a projection, not a measurement.
+
+To reproduce: join the `Week{N}/week{N}_predictions.csv` files against the 2025 schedule from `nfl_data_py` (the cached copy is `Week22/nfl_data/schedule_data_2020_2025.csv`, currently moved out of the repo to `../NFL-Performance-Predictor-holdout-2025/`). Filter `season == 2025`, map `LAR`→`LA`, and skip ties. Or run `Plot.ipynb`.
+
 ---
 
 ## 5. Discussion

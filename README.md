@@ -48,11 +48,13 @@ This repo is organized **by NFL week** (`Week1/` … `Week22/`) rather than by a
 - `.github/workflows/tests.yml` — CI: runs the test suite on every push/PR to `main`
 - `Week{N}/Model.ipynb` — full pipeline for week *N* (data collection → feature engineering → ensemble training → calibration → prediction)
 - `Week{N}/week{N}_predictions.csv` — that week's graded predictions (tracked in git)
-- `Week{N}/nfl_data/` — cached raw data (gitignored, regenerated on first run)
+- `Week{N}/nfl_data/` — cached raw data (gitignored, regenerated on first run; currently moved out of the repo, see `CLAUDE.md`)
 - `Plot.ipynb` — aggregates all weeks' predictions against actual results, produces the season-performance dashboard
 - `figures/` — static exports of the report's visualizations (confusion matrix, calibration chart, ROC curve, pipeline diagram, season dashboard)
 - `Final_Report.md` / `Final_Report.pdf` — the final report
-- `CLAUDE.md` — detailed engineering notes: architecture, known bugs, and reproduction steps for the measured performance numbers
+- `CLAUDE.md` — engineering notes: environment, scorecard (`evaluate.py`), architecture, known bugs, and the rules for model experiments
+- `docs/NOTEBOOKS.md` — how the weekly notebooks and `Plot.ipynb` work, and how to add a week
+- Measured 2025 performance and how to reproduce it: `Final_Report.md` §4
 
 ## Known limitations
 
