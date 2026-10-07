@@ -30,7 +30,6 @@ from sklearn.ensemble import (RandomForestClassifier, VotingClassifier, Gradient
                                GradientBoostingRegressor, RandomForestRegressor)
 from sklearn.calibration import CalibratedClassifierCV as CCV
 from sklearn.pipeline import Pipeline
-from scipy.optimize import minimize_scalar
 import re
 from datetime import datetime
 
@@ -1160,42 +1159,6 @@ class NFLSpreadPredictor:
         return results
 
 
-# Blend train_and_predict's output toward the training home-win rate (see fit_home_shrinkage).
-SHRINK_TO_HOME_RATE = False
-
-
-def _fit_ensemble_predict(train_df, test_df):
-    """Feature selection + calibrated ensemble fit on train_df; P(home win) for test_df."""
-    predictor = NFLGamePredictor()
-    predictor.select_features(train_df)
-    predictor.create_ensemble_model(train_df)
-    cols = predictor.best_features
-    # Fill gaps with training means, never test-batch statistics.
-    X_test = test_df[cols].fillna(train_df[cols].mean())
-    return predictor.final_model.predict_proba(X_test)[:, 1]
-
-
-def fit_home_shrinkage(train_df, cal_frac=0.2):
-    """
-    Weight `a` for p = a*model + (1-a)*home_rate, fit on a temporal split of train_df:
-    the ensemble is trained on the earlier weeks and `a` is chosen to minimize log loss
-    on the latest `cal_frac` of weeks, which the ensemble never saw.
-    """
-    key = train_df['season'] * 100 + train_df['week']
-    weeks = np.sort(key.unique())
-    cutoff = weeks[-max(1, int(round(len(weeks) * cal_frac)))]
-    early, late = train_df[key < cutoff], train_df[key >= cutoff]
-
-    model_p = _fit_ensemble_predict(early, late)
-    home_rate = early['home_win'].mean()
-    y = late['home_win'].values
-
-    def loss(a):
-        return log_loss(y, np.clip(a * model_p + (1 - a) * home_rate, 1e-15, 1 - 1e-15), labels=[0, 1])
-
-    return minimize_scalar(loss, bounds=(0, 1), method='bounded').x
-
-
 def train_and_predict(train_df, test_df):
     """
     The model as evaluate.py scores it: fit on train_df (build_dataset rows, labels
@@ -1205,15 +1168,14 @@ def train_and_predict(train_df, test_df):
     Anything fit here -- feature selection, ensemble, calibration, blending -- sees only
     train_df, so it is walk-forward by construction. Calibration needs out-of-sample
     predictions, so fit it on a temporal split *inside* train_df, never on test_df.
-
-    The ensemble is overconfident, so its output is shrunk toward the training home-win
-    rate by a weight fit on held-out late training weeks (fit_home_shrinkage).
     """
-    model_p = _fit_ensemble_predict(train_df, test_df)
-    if not SHRINK_TO_HOME_RATE:
-        return model_p
-    a = fit_home_shrinkage(train_df)
-    return a * model_p + (1 - a) * train_df['home_win'].mean()
+    predictor = NFLGamePredictor()
+    predictor.select_features(train_df)
+    predictor.create_ensemble_model(train_df)
+    cols = predictor.best_features
+    # Fill gaps with training means, never test-batch statistics.
+    X_test = test_df[cols].fillna(train_df[cols].mean())
+    return predictor.final_model.predict_proba(X_test)[:, 1]
 
 
 def run_validation_gate(metrics, min_accuracy=0.55, max_brier=0.25):
