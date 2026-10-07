@@ -11,7 +11,7 @@ Weekly notebooks (`Week{N}/Model.ipynb`, `Plot.ipynb`) are documented separately
 ## Experiment rules (model-improvement work)
 
 - The only measure of a change is `./.venv/bin/python evaluate.py`.
-  Current baseline: SCORE 0.6557, Brier 0.2319, accuracy 60.5%.
+  Current baseline: SCORE 0.6495, Brier 0.2289, accuracy 61.9%.
 - Model changes go in `nfl_predictor.py` (`train_and_predict` and what it calls).
 - Never edit `evaluate.py`, `fetch_data.py`, `loop.sh`, or anything in `tests/`.
 - Never read `../NFL-Performance-Predictor-holdout-2025/` or use 2025 data in any form.
@@ -59,7 +59,7 @@ At the very end (human only), restore the caches with `for d in ../NFL-Performan
 
 Frozen referee for model experiments. It loads `data/`, drops season ≥ 2025 (`HOLDOUT_SEASON`), and runs a leakage test: it rebuilds 7 checkpoint weeks with the future deleted and that week's scores scrambled, and any feature change means exit 1 with no SCORE. Then it runs walk-forward: it retrains `nfl_predictor.train_and_predict(train_df, test_df)` on strictly earlier games every `RETRAIN_EVERY = 4` weeks (weekly retraining would take ~13 min) and predicts the block. `test_df` has the label columns stripped. It prints `SCORE: <log loss>`; lower is better.
 
-Current baseline: **SCORE 0.6557, Brier 0.2319, accuracy 60.5%** over 3,577 games. For reference: always predicting the training home-win rate scores 0.6860, a coin flip 0.6931, and always picking home is 56.1% accurate. History: 0.6838 with isotonic calibration, then 0.6557 with sigmoid (isotonic emitted exact 0/1 probabilities, and each lost "certain" game cost 34.5 log loss). Shrinkage toward the home-win rate was tried and dropped: it helped isotonic (0.6618) but not sigmoid.
+Current baseline: **SCORE 0.6495, Brier 0.2289, accuracy 61.9%** over 3,577 games. For reference: always predicting the training home-win rate scores 0.6860, a coin flip 0.6931, and always picking home is 56.1% accurate. History: 0.6838 with isotonic calibration, then 0.6557 with sigmoid (isotonic emitted exact 0/1 probabilities, and each lost "certain" game cost 34.5 log loss). Shrinkage toward the home-win rate was tried and dropped: it helped isotonic (0.6618) but not sigmoid. Loop iteration 1 (`e7cc112`) then reached 0.6495 by making the ensemble's tree models shallow and heavily regularized (RF depth 15→5, XGBoost and GB depth 8→2 with learning rate 0.1→0.03, larger minimum leaf sizes).
 
 ## Architecture
 
