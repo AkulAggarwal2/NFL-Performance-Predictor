@@ -59,7 +59,7 @@ Frozen referee for model experiments; change `nfl_predictor.py`, not this. It lo
 1. `collect_data(2020, 2025)` — downloads play-by-play, weekly, schedule, and team data via `nfl_data_py`; caches to `nfl_data/`. **The call site uses 2020–2025**, not the `start_year=2010` default in the signature.
 2. `build_dataset(pbp, weekly, schedule)` — joins to one row per game, writes `nfl_data/processed_game_features.csv`.
 3. `select_features(df, n_features=20)` — RFE with an LDA estimator, sweeping 2…20 features and keeping the best.
-4. `create_ensemble_model(df)` — soft-voting `VotingClassifier` over Random Forest + Logistic Regression + Gradient Boosting + XGBoost, each wrapped in `CalibratedClassifierCV` (isotonic, cv=3), fit with **temporal sample weights** `np.exp(-0.15 * years_ago)` (2024 ≈ 2× the weight of 2020 under the current 2020–2025 window).
+4. `create_ensemble_model(df)` — soft-voting `VotingClassifier` over Random Forest + Logistic Regression + Gradient Boosting + XGBoost, each wrapped in `CalibratedClassifierCV` (sigmoid/Platt, cv=3; was isotonic, which emitted exact 0/1 probabilities), fit with **temporal sample weights** `np.exp(-0.15 * years_ago)` (2024 ≈ 2× the weight of 2020 under the current 2020–2025 window).
 5. `evaluate_model_with_calibration(df)` — `TimeSeriesSplit` CV reporting Brier score and log loss.
 6. `predict_games(games_df)` — win probabilities.
 
