@@ -8,6 +8,18 @@ Machine-learning system that predicts NFL game winners and point spreads for the
 
 **Weeks 1–21** are standalone, self-contained notebooks — each `Week{N}/Model.ipynb` carries its own inline copy of the pipeline (~44 KB of class definitions in a single cell), exactly as it was run to produce that week's already-graded prediction. **Week 22** is the exception: its pipeline classes (`NFLGamePredictor`, `NFLSpreadPredictor`, `predict_multiple_games_with_spreads`, `run_validation_gate`) now live in `nfl_predictor.py` at the repo root, and `Week22/Model.ipynb` imports them rather than redefining them inline (see "Shared module" below). `tests/test_nfl_predictor.py` (pytest) covers `nfl_predictor.py`'s pure/deterministic logic and runs in GitHub Actions (`.github/workflows/tests.yml`) on every push/PR to `main`; it does not and cannot cover Weeks 1–21's inline, per-notebook code. Understanding the *history* here is the important fact: a model change used to mean editing one notebook and copying it forward by hand, with the copy silently diverging from that point on — Weeks 1–21 are frozen artifacts of that pattern and are not being retrofitted.
 
+## Experiment rules (model-improvement work)
+
+- The only measure of a change is `./.venv/bin/python evaluate.py`.
+  Current baseline: SCORE 0.6557, Brier 0.2319, accuracy 60.5%.
+- Model changes go in `nfl_predictor.py` (`train_and_predict` and what it calls).
+- Never edit `evaluate.py`, `fetch_data.py`, or anything in `tests/`.
+- Never read `../NFL-Performance-Predictor-holdout-2025/` or use 2025 data in any form.
+- Anything fitted (calibration, imputation, scaling, feature selection) uses only `train_df`.
+- One idea per attempt. Afterward, run evaluate.py and pytest, and report SCORE, accuracy, Brier, and min/max probability.
+- Never hardcode outcomes, special-case specific teams, seasons, or games, or weaken or skip tests or the leakage check.
+- Don't run git or commit. The human or the loop script decides what to keep.
+
 ## Environment & Commands
 
 Use the project-local env **`.venv/`** (gitignored) for scripts and tests: a conda env with Python 3.11 + `requirements.txt` (matching CI) plus `llvm-openmp` from conda-forge, which xgboost needs for `libomp.dylib`. Recreate with:
