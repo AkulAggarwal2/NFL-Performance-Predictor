@@ -860,12 +860,12 @@ class NFLGamePredictor:
             old_weight = sample_weights[df['season']==current_year-5].mean() if (df['season']==current_year-5).any() else 1.0
             print(f"Temporal weighting: {current_year} data = {recent_weight:.2f}x, {current_year-5} data = {old_weight:.2f}x")
         
-        # Deeper Random Forest (5→15) with overfitting protection
+        # Shallow, heavily regularized trees: a few thousand games can't support deep ones
         rf = RandomForestClassifier(
             n_estimators=200,
-            max_depth=15,  # CHANGED from 5
-            min_samples_split=10,
-            min_samples_leaf=4,
+            max_depth=5,
+            min_samples_split=40,
+            min_samples_leaf=20,
             random_state=42
         )
         
@@ -874,12 +874,13 @@ class NFLGamePredictor:
         
         estimators = [('rf', rf), ('lr', lr)]
         
-        # Deeper XGBoost (5→8) with stronger regularization
+        # Shallow XGBoost with slow learning rate and L1/L2 regularization
         if HAS_XGB:
             xgb_model = xgb.XGBClassifier(
-                max_depth=8,          # CHANGED from 5
-                learning_rate=0.1,
+                max_depth=2,
+                learning_rate=0.03,
                 n_estimators=200,
+                min_child_weight=10,
                 reg_alpha=0.5,        # L1 regularization
                 reg_lambda=1.0,       # L2 regularization
                 subsample=0.8,        # Row sampling
@@ -892,8 +893,9 @@ class NFLGamePredictor:
         # Add Gradient Boosting for ensemble diversity (4th model)
         gb = GradientBoostingClassifier(
             n_estimators=200,
-            max_depth=8,
-            learning_rate=0.1,
+            max_depth=2,
+            learning_rate=0.03,
+            min_samples_leaf=20,
             subsample=0.8,
             random_state=42
         )
